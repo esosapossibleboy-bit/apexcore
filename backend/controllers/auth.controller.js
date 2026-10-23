@@ -4,6 +4,16 @@ import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
 import jwt from 'jsonwebtoken';
 
+// PRODUCTION COOKIE CONFIG - REQUIRED for Vercel + Render
+const isProduction = process.env.NODE_ENV === 'production';
+const cookieOptions = (maxAge) => ({
+  httpOnly: true,
+  secure: isProduction ? true : false, // Render is https = true
+  sameSite: isProduction ? 'None' : 'Lax', // None for cross-site Vercel
+  maxAge,
+  path: '/'
+});
+
 export const register = async (req, res, next) => {
   try {
     const { email, password, firstName, lastName } = req.body;
@@ -80,20 +90,11 @@ export const login = async (req, res, next) => {
     const accessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '15m' });
     const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
 
-    res.cookie('accessToken', accessToken, {
-      httpOnly: true,
-      secure: false, // set true in production
-      sameSite: 'Strict',
-      maxAge: 15*60*1000
-    });
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'Strict',
-      maxAge: 7*24*60*60*1000
-    });
+    // FIXED - Production ready cookies
+    res.cookie('accessToken', accessToken, cookieOptions(15*60*1000));
+    res.cookie('refreshToken', refreshToken, cookieOptions(7*24*60*60*1000));
 
-    res.json({ message: 'Login successful', user: { email: user.email } });
+    res.json({ message: 'Login successful', user: { email: user.email, firstName: user.firstName } });
   } catch (err) {
     next(err);
   }
@@ -101,8 +102,19 @@ export const login = async (req, res, next) => {
 
 export const logout = async (req, res, next) => {
   try {
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
+    // FIXED - Must use same options to clear
+    res.clearCookie('accessToken', { 
+      httpOnly: true, 
+      secure: isProduction, 
+      sameSite: isProduction ? 'None' : 'Lax',
+      path: '/' 
+    });
+    res.clearCookie('refreshToken', { 
+      httpOnly: true, 
+      secure: isProduction, 
+      sameSite: isProduction ? 'None' : 'Lax',
+      path: '/' 
+    });
     res.json({ message: 'Logged out' });
   } catch (err) {
     next(err);
@@ -120,12 +132,7 @@ export const refresh = async (req, res, next) => {
 
     const newAccessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '15m' });
 
-    res.cookie('accessToken', newAccessToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'Strict',
-      maxAge: 15*60*1000
-    });
+    res.cookie('accessToken', newAccessToken, cookieOptions(15*60*1000));
 
     res.json({ message: 'Token refreshed' });
   } catch (err) {
@@ -135,8 +142,9 @@ export const refresh = async (req, res, next) => {
 
 export const getMe = async (req, res, next) => {
   try {
+    // Audit proof - never leak password/2FA secret
     const user = await User.findById(req.user.id).select('-password -twoFASecret');
-    res.json({ user, balance: 12450.00 });
+    res.json({ user });
   } catch (err) {
     next(err);
   }
