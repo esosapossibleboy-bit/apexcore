@@ -1,17 +1,12 @@
 import mongoose from 'mongoose';
 
-const transactionSchema = new mongoose.Schema({
-  fromAccount: { type: String, required: true },
-  toAccount: { type: String, required: true },
-  amount: { type: Number, required: true, min: 0.01 },
-  type: { type: String, enum: ['TRANSFER', 'DEPOSIT'], required: true },
-  status: { type: String, enum: ['PENDING', 'COMMITTED', 'FAILED'], default: 'PENDING' },
-  hash: { type: String, required: true }, // SHA256 of this tx
-  prevHash: { type: String }, // chain integrity
-  initiatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+const txSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  type: { type: String, enum: ['credit', 'debit'], required: true },
+  amount: { type: Number, required: true },
+  description: { type: String, default: '' },
+  toEmail: String,
+  fromEmail: String
 }, { timestamps: true });
 
-// Make immutable - no updates allowed
-transactionSchema.pre('findOneAndUpdate', function() { throw new Error('Ledger is immutable'); });
-
-export default mongoose.model('Transaction', transactionSchema);
+export default mongoose.model('Transaction', txSchema);
