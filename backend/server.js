@@ -28,7 +28,8 @@ app.use(cookieParser());
 // 2. CORS - production mapping
 const allowedOrigins = [
   'http://localhost:5173',
-  process.env.FRONTEND_URL // Your Vercel URL e.g. https://apexcore.vercel.app
+  process.env.FRONTEND_URL, // Set this in Render dashboard 
+  'https://apexcore-pi.vercel.app' // Your Vercel URL as fallback
 ].filter(Boolean);
 
 app.use(cors({
