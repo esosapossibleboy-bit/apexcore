@@ -1,98 +1,58 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import api from '../api'
 
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+export default function Register() {
+  const [form, setForm] = useState({ fullName: '', email: '', password: '' })
 
-function Register() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [qrImage, setQrImage] = useState('');
-  const [manualCode, setManualCode] = useState('');
-
-  const { register } = useAuth();
-  const navigate = useNavigate();
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    
-    try {
-      // Password check - professor requirement
-      if (password.length < 8) {
-        throw new Error('Password must be 8+ characters with symbol');
-      }
-
-      const res = await register(name, email, password);
-
-      // This is where QR IMAGE comes from backend
-      if (res.qrImage) {
-        setQrImage(res.qrImage);
-        setManualCode(res.manualCode);
-        // Give user 10 sec to scan, then go to login
-        setTimeout(() => navigate('/login'), 10000);
-      } else {
-        navigate('/login');
-      }
-    } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Registration failed');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const submit = async (e) => {
+    e.preventDefault()
+    await api.post('/auth/register', form)
+    window.location = '/login'
+  }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'black', color: 'white', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-      <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: 380, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <h1 style={{ textAlign: 'center', fontSize: 28, fontWeight: 'bold' }}>ApexCore Bank</h1>
-        <p style={{ textAlign: 'center', fontSize: 13, opacity: 0.7 }}>Week 4 - Secure Registration</p>
+    <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4">
+      <div className="w-full max-w-sm bg-white rounded-[24px] p-8">
+        <h1 className="text-4xl font-bold text-center text-black leading-tight">
+          ApexCore<br/>Bank<sup className="text-xl">TM</sup>
+        </h1>
+        
+        <h2 className="text-xl font-bold text-center mt-8 mb-6 text-black">Secure Registration</h2>
 
-        {error && (
-          <div role="alert" style={{ background: '#ff0000', color: 'white', padding: 10, borderRadius: 6, fontSize: 12 }}>
-            {error}
-          </div>
-        )}
+        <form onSubmit={submit} className="flex flex-col">
+          <label className="text-[15px] text-black mb-2">Full Name</label>
+          <input 
+            className="border border-gray-300 rounded-xl p-3 mb-4 bg-white text-black"
+            value={form.fullName} 
+            onChange={e=>setForm({...form, fullName:e.target.value})}
+          />
 
-        {/* QR IMAGE SECTION - replaces long otpauth:// code */}
-        {qrImage && (
-          <div style={{ background: 'white', padding: 16, borderRadius: 8, textAlign: 'center', border: '2px solid #00ff00' }}>
-            <p style={{ fontWeight: 'bold', fontSize: 13, color: 'black' }}>Scan this in Google Authenticator</p>
-            <img src={qrImage} alt="2FA QR Code" style={{ width: 220, height: 220, margin: '10px auto', display: 'block' }} />
-            <p style={{ fontSize: 10, wordBreak: 'break-all', marginTop: 8, color: 'black' }}>Manual code: {manualCode}</p>
-            <p style={{ fontSize: 11, color: 'green', marginTop: 8, fontWeight: 'bold' }}>Redirecting to login in 10s...</p>
-          </div>
-        )}
+          <label className="text-[15px] text-black mb-2">Email</label>
+          <input 
+            type="email"
+            className="border border-gray-300 rounded-xl p-3 mb-4 bg-white text-black"
+            value={form.email} 
+            onChange={e=>setForm({...form, email:e.target.value})}
+          />
 
-        {!qrImage && (
-          <>
-            <div>
-              <label htmlFor="name" style={{ fontSize: 12 }}>Full Name</label>
-              <input id="name" aria-label="Full Name" value={name} onChange={e => setName(e.target.value)} required style={{ width: '100%', padding: 10, borderRadius: 6, border: '1px solid gray', background: '#111', color: 'white' }} />
-            </div>
+          <label className="text-[15px] text-black mb-2">Password (8+ chars, symbol, upper, lower, number)</label>
+          <input 
+            type="password"
+            className="border border-gray-300 rounded-xl p-3 mb-6 bg-white text-black"
+            value={form.password} 
+            onChange={e=>setForm({...form, password:e.target.value})}
+          />
 
-            <div>
-              <label htmlFor="email" style={{ fontSize: 12 }}>Email</label>
-              <input id="email" type="email" aria-label="Email" inputMode="email" value={email} onChange={e => setEmail(e.target.value)} required style={{ width: '100%', padding: 10, borderRadius: 6, border: '1px solid gray', background: '#111', color: 'white' }} />
-            </div>
+          <button className="bg-black text-white rounded-xl py-3 font-bold">
+            Create Secure Account
+          </button>
+        </form>
 
-            <div>
-              <label htmlFor="password" style={{ fontSize: 12 }}>Password (8+ chars, symbol, upper, lower, number)</label>
-              <input id="password" type="password" aria-label="Password" value={password} onChange={e => setPassword(e.target.value)} required style={{ width: '100%', padding: 10, borderRadius: 6, border: '1px solid gray', background: '#111', color: 'white' }} />
-            </div>
-
-            <button type="submit" disabled={loading} style={{ background: loading ? 'gray' : 'white', color: 'black', padding: 12, borderRadius: 6, fontWeight: 'bold', cursor: loading ? 'not-allowed' : 'pointer' }}>
-              {loading ? 'Creating...' : 'Create Secure Account'}
-            </button>
-          </>
-        )}
-
-        <Link to="/login" style={{ textAlign: 'center', fontSize: 12, color: '#888', marginTop: 8 }}>Already have account? Login</Link>
-      </form>
+        <p className="text-center text-sm mt-6 text-black">
+          Already have account? <Link to="/login" className="text-purple-700 underline">Login</Link>
+        </p>
+      </div>
     </div>
-  );
+  )
 }
-
-export default Register;
