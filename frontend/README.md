@@ -1,103 +1,62 @@
-# ApexCore Bank™ - Secure Full-Stack Banking Platform
+# ApexCore - Secure Financial Transaction Platform
 
-**Author:** Esosa  
-**Stack:** MERN + MFA + ACID Transactions + Helmet Security  
-**Course:** Weeks 1-5 Final Submission
+![ApexCore Architecture - 3 Financial Integrity Rules + ACID](docs/architecture.png)
 
----
+A MERN stack financial platform built with **Non-Negotiable Financial Integrity Guidelines** and ACID compliance.
 
-## 🎯 Overview
+## 🛡️ 3 Non-Negotiable Financial Integrity Guidelines Implemented
 
-ApexCore Bank™ is a secure, production-ready banking dashboard featuring Google Authenticator MFA, JWT httpOnly cookie authentication, ACID-compliant transactional processing, and append-only ledger architecture.
+### Rule 1: Never Overwrite Balances Directly
+> Always compute explicit current account valuations by accumulating immutable history logs.
 
-Live Balance: $13,284.50 (calculated from ledger)
+**Implementation:**
+- `User.js` has NO `balance` field - deleted to prevent direct mutation
+- `Transaction.js` is append-only, immutable ledger with `credit`/`debit` types
+- Balance calculated via:
+```js
+static async getBalance(userId) {
+  const result = await this.aggregate([
+    { $match: { userId } },
+    { $group: { _id: null, balance: { $sum: { $cond: [{ $eq: ["$type","credit"] }, "$amount", { $multiply: ["$amount", -1] }] } } }
+  ]);
+  return result[0]?.balance || 0;
+}All reads: Transaction.find().sort({ createdAt: 1 }) - sorted append-only orderRule 2: Never Rely on Client Calculations
+Every monetary calculation must execute exclusively on server tier.Implementation:
+Server-tier rounding: req.body.amount = Math.round(amt * 100) / 100All financial math in getBalance() aggregate on serverNo balance sent from client is trustedRule 3: Isolate Mutative Requests
+Use explicit input scrubbing to ensure data properties matching negative metrics cannot bypass entry validations.Implementation:
+scrubFinancialInput middleware:jsif (String(raw).includes('-')) return 400 Negative metrics not allowed
+if (!Number.isFinite(amt)) return 400 Must be finite
+if (Object.is(amt, -0)) return 400 Negative zero blocked
+if (amt <= 0) return 400 Must be > 0🔒 Week 5: ACID Transaction Compliancejsconst session = await mongoose.startSession();
+session.startTransaction();
+try {
+  // All reads inside session
+  await User.findById().session(session)
+  // Append-only ledger entries
+  await Transaction.create([...], { session })
+  await session.commitTransaction();
+} catch {
+  await session.abortTransaction(); // Automatic rollback on hardware/network drop
+}Dual account mutation is atomic - both debit + credit succeed or both rollback.
+Tech Stack
+Frontend: React + Vite (port 5173)Backend: Node.js + Express (port 5000)DB: MongoDB + Mongoose sessionsAuth: JWT in httpOnly cookiesSetupbash# Clone
+git clone https://github.com/Esosa/apexcore.git
+cd apexcore
 
----
-
-## ✅ Week-by-Week Implementation
-
-### Week 1-2: Auth & MFA
-- [x] User Model with `balance`, `mfaSecret`, `loginAttempts`, `lockUntil`
-- [x] Registration with QR Code (not just code) using `speakeasy`
-- [x] Google Authenticator TOTP verification
-- [x] Password hashing with bcrypt
-
-### Week 3: Security Pipeline
-- [x] Helmet + HSTS (maxAge 31536000)
-- [x] Rate Limiting: 100 req/15min global, 5 req/15min auth
-- [x] CORS with `credentials: true`
-- [x] Payload limit `10kb` anti-DDoS
-- [x] Global error handler - no stack leak
-
-### Week 4: Frontend Architecture
-- [x] `AuthContext` isolated with `useAuth()` hook (professor requirement)
-- [x] `ProtectedRoute` + `GuestRoute`
-- [x] Transactional forms with `aria-label`, `inputMode="decimal"`, `min="0.01"`, `step="0.01"`
-- [x] Memory-cycle optimized `Promise.all([/auth/me, /transactions])`
-- [x] Balance transactional update without page refresh
-
-### Week 5: ACID & Full-Stack Pipelines (CURRENT)
-- [x] **Global Axios Instance:** `withCredentials: true` in `src/api.js` - binds server session contexts
-- [x] **ACID Transactions:** `mongoose.startSession()` + `session.startTransaction()` in `routes/transactions.js`
-- [x] **Automatic Rollback:** `session.abortTransaction()` on hardware/network drops during dual account mutations
-- [x] **Append-Only Ledger Pipeline:** Balance calculated via `transactions.reduce()` - never stored alone, mapped dynamically to dashboard
-- [x] **Secure Connected:** `MongoDB Secure Connected - ACID ready` on server boot
-
----
-
-## 🔒 Security Features
-
-- httpOnly cookie JWT (no localStorage)
-- TOTP MFA with QR
-- Brute-force lock after 5 attempts
-- Helmet blocks XSS, clickjacking
-- ACID ensures no partial money loss
-
----
-
-## 💳 Transaction Logic (ACID)
-
-**Send Money:**
-1. `startSession()` + `startTransaction()`
-2. Read sender & recipient inside session
-3. Deduct sender, credit recipient, create 2 ledger entries - all with `{session}`
-4. On success: `commitTransaction()` - both accounts update together
-5. On any error/network drop: `abortTransaction()` - automatic rollback, no money lost
-
-**Add Money:** Same ACID pipeline
-
-**Ledger:** 
-```javascript
-const balance = transactions.reduce((acc, tx) => 
-  tx.type === 'credit' ? acc + tx.amount : acc - tx.amount, 0)
-
-  🚀 Installation
-Backendbashcd backend
+# Backend
+cd backend
 npm install
-# .env: MONGO_URI, JWT_SECRET, PORT=5000
-node server.js
-# Expected: MongoDB Secure Connected - ACID ready
-# Expected: ApexCore SECURE ACID running on 5000
-
-Frontendbashcd frontend
-npm install
+# Create .env with: MONGO_URI, JWT_SECRET, PORT=5000
 npm run dev
-# http://localhost:5173Test User
-Email: john@test.comPassword: your passwordMFA: Google Authenticator code📡 API EndpointsMethodEndpointAuthDescriptionPOST/api/auth/registerNoRegister + QRPOST/api/auth/loginNoLogin + TOTPGET/api/auth/meYesGet userGET/api/transactionsYesAppend-only ledgerPOST/api/transactions/sendYesACID transferPOST/api/transactions/addYesACID depositPOST/api/auth/logoutYesClear cookie🖥️ Demo Flow for Professor
-Terminal shows ACID readyDashboard shows john@test.com + $13,284.50 + 5 transactions with real datesAdd Money $100 → $13,384.50 instantlySend Money to esosa@test.com → both balances updateLogout → /dashboard blocked → Login with MFA code → backNetwork tab shows withCredentials📁 File Structure
 
-apexcore/
-├── backend/
-│   ├── models/
-│   │   ├── User.js (balance, mfaSecret)
-│   │   └── Transaction.js (append-only ledger)
-│   ├── routes/
-│   │   ├── auth.js
-│   │   └── transactions.js (ACID sessions)
-│   └── server.js (Helmet, CORS credentials, RateLimit)
-└── frontend/
-    ├── src/
-    │   ├── api.js (withCredentials: true)
-    │   ├── context/AuthContext.jsx (useAuth)
-    │   ├── components/ProtectedRoute.jsx
-    │   └── pages/Dashboard.jsx (calculated ledger)
+# Frontend
+cd ../frontend
+npm install
+npm run devAPI EndpointsMethodRouteDescriptionIntegrityGET/api/transactionsGet append-only ledgerRule 1POST/api/transactions/sendTransfer with ACID + scrubbingRule 1,2,3POST/api/transactions/addDeposit with ACIDRule 1,2,3POST/api/auth/loginSets httpOnly cookieSecureTesting Financial Integritypowershell# PowerShell - must use curl.exe not curl
+$token = "real_jwt_from_login"
+curl.exe http://localhost:5000/api/transactions -H "Cookie: token=$token"
+
+# Rule 3 test - should block
+curl.exe -X POST http://localhost:5000/api/transactions/send -H "Content-Type: application/json" -H "Cookie: token=$token" -d "{\"toEmail\":\"test@test.com\",\"amount\":-100}"
+# Expected: 400 Negative metrics not allowedAuthor
+Esosa - ApexCore Project - Financial Systems Security

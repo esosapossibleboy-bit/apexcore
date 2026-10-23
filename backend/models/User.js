@@ -5,10 +5,10 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true },
   password: { type: String, required: true, select: false },
   mfaSecret: { type: String, select: false },
-  balance: { type: Number, default: 0 },
   name: { type: String },
   loginAttempts: { type: Number, default: 0 },
   lockUntil: { type: Date }
+  // REMOVED: balance - now computed from immutable Transaction logs per Rule 1
 }, { 
   timestamps: true,
   toJSON: {
@@ -23,7 +23,6 @@ const userSchema = new mongoose.Schema({
   }
 });
 
-// WEEK 6 FIX: NO 'next' parameter when using async!
 userSchema.pre('save', async function() {
   if (!this.isModified('password')) return;
   this.password = await bcrypt.hash(this.password, 12);
